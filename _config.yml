@@ -1,0 +1,29 @@
+title: "Doom 3 / Path Traced"
+description: "An experimental Doom 3 path tracer and community GPU benchmark."
+url: ""
+baseurl: ""
+source_repository: aknavj/dhewm3-cupt
+source_branch: pt-refactor
+community_repository: aknavj/d3ptmark-submissions
+paypal_donate_url: "https://www.paypal.com/ncp/payment/XXVFMFSZYWNEY"
+youtube_intro_url: "https://www.youtube.com/watch?v=HWzbplsBm0A"
+markdown: kramdown
+permalink: /journal/:year/:month/:day/:title/
+timezone: Europe/Prague
+future: false
+strict_front_matter: true
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - package.json
+  - scripts
+  - tests
+  - vendor
+  - node_modules
+  - .bundle

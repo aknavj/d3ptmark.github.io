@@ -1,0 +1,11 @@
+{
+  "name": "doom3-path-traced-benchmark-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "sync": "node scripts/sync-submissions.mjs",
+    "refresh": "sh scripts/refresh-site.sh"
+  },
+  "engines": { "node": ">=22" }
+}

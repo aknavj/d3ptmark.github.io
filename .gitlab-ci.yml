@@ -1,0 +1,68 @@
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - when: never
+
+stages:
+  - refresh
+  - build
+  - deploy
+
+refresh-submissions:
+  stage: refresh
+  image: node:22-bookworm
+  script:
+    - npm test
+    - npm run sync
+  artifacts:
+    paths:
+      - _data/submissions.json
+      - assets/data/reports/
+    expire_in: 1 day
+
+build-site:
+  stage: build
+  image: ruby:3.3-bookworm
+  needs:
+    - job: refresh-submissions
+      artifacts: true
+  variables:
+    BUNDLE_PATH: vendor/bundle
+    BUNDLE_FROZEN: "true"
+    JEKYLL_ENV: production
+  cache:
+    key:
+      files:
+        - Gemfile.lock
+    paths:
+      - vendor/bundle/
+  script:
+    - bundle install
+    - |
+      ruby -ruri -ryaml <<'RUBY' > /tmp/benchmark-pages.yml
+      url = URI(ENV.fetch("CI_PAGES_URL"))
+      abort "CI_PAGES_URL must be an absolute HTTPS URL." unless url.is_a?(URI::HTTPS) && url.host
+      origin = url.dup
+      origin.path = ""
+      origin.query = nil
+      origin.fragment = nil
+      puts({ "url" => origin.to_s, "baseurl" => url.path.sub(%r{/$}, "") }.to_yaml)
+      RUBY
+    - bundle exec jekyll build --strict_front_matter --config _config.yml,/tmp/benchmark-pages.yml
+  artifacts:
+    paths:
+      - _site/
+    expire_in: 1 day
+
+deploy-pages:
+  stage: deploy
+  image: node:22-bookworm
+  needs:
+    - job: build-site
+      artifacts: true
+  resource_group: benchmark-pages
+  script:
+    - node scripts/check-site.mjs _site "$(node -e 'console.log(new URL(process.env.CI_PAGES_URL).pathname)')"
+  pages:
+    publish: _site
+    expire_in: never

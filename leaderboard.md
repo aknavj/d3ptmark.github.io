@@ -1,0 +1,32 @@
+---
+title: Leaderboard
+eyebrow: Community / Results
+intro: "Community results, grouped by matching settings."
+permalink: /leaderboard/
+wide: true
+---
+Select a configuration to compare GPUs on the same workload. Results need
+maintainer approval (`benchmark-approved`); this is community review, not
+independent verification. Dirty or unknown revisions stay unranked.
+
+<section id="leaderboard" data-source="{{ '/assets/data/leaderboard.json' | relative_url }}" data-report-url="{{ '/report/' | relative_url }}">
+  <div class="leaderboard-filters">
+    <label>Renderer <select id="leaderboard-model" disabled><option value="">All renderers</option><option value="PT_PHYSICAL">Physical PT</option><option value="legacy">Legacy PT</option><option value="OpenGL">OpenGL</option></select></label>
+    <label>Platform <select id="leaderboard-platform" disabled><option value="">All platforms</option></select></label>
+    <label>GPU, CPU or user <input id="leaderboard-search" type="search" placeholder="Search hardware..." disabled></label>
+    <label>Sort by <select id="leaderboard-sort" disabled><option value="fps">Captured FPS</option><option value="gpu">GPU time</option><option value="date">Newest report</option></select></label>
+  </div>
+  <label>Comparison workload <select id="leaderboard-group" disabled><option>Loading results...</option></select></label>
+  <p id="leaderboard-status" role="status" aria-live="polite"></p>
+  <div id="leaderboard-results"></div>
+  <div class="pagination"><button id="leaderboard-prev" class="secondary" disabled>Previous</button><span id="leaderboard-page"></span><button id="leaderboard-next" class="secondary" disabled>Next</button></div>
+</section>
+
+<noscript><p>Enable JavaScript for the table, or
+<a href="{{ '/assets/data/leaderboard.json' | relative_url }}">read the JSON data</a>.</p></noscript>
+
+**Captured fps includes pacing and image writes, not just rendering.**
+GPU ms/frame is shown separately for PT and is unavailable for GL.
+These are not unrestricted gameplay FPS results.
+
+[Run a benchmark and submit your GPU]({{ '/benchmark/' | relative_url }}).

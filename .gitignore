@@ -1,0 +1,9 @@
+/_site/
+/.jekyll-cache/
+/.jekyll-metadata
+/.sass-cache/
+/.bundle/
+/vendor/
+/node_modules/
+# Generated, approved per-run chart data (rebuilt by npm run sync).
+/assets/data/reports/
