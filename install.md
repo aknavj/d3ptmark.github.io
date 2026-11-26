@@ -22,7 +22,7 @@ and SDL2/OpenAL Soft development packages.
 [Full requirements](https://github.com/{{ site.source_repository }}/blob/{{ site.source_branch }}/README.md#compiling).
 
 ```sh
-git clone --branch pt-refactor https://github.com/aknavj/dhewm3-cupt.git
+git clone --branch pt-refactor https://github.com/d3ptmarkdhewm3-cupt.git
 cd dhewm3-cupt
 ```
 
