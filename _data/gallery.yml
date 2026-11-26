@@ -1,0 +1,26 @@
+- id: denoise-8
+  title: "Denoising at 8 samples per pixel"
+  before: raw-8.webp
+  after: denoised-8.webp
+  before_label: "Raw path tracing, 8 spp"
+  after_label: "Denoised path tracing, 8 spp"
+  aligned: true
+  caption: "Matched frozen-view development captures at 800x600."
+
+- id: denoise-64
+  title: "Denoising at 64 samples per pixel"
+  before: raw-64.webp
+  after: denoised-64.webp
+  before_label: "Raw path tracing, 64 spp"
+  after_label: "Denoised path tracing, 64 spp"
+  aligned: true
+  caption: "Matched frozen-view development captures at 800x600."
+
+- id: gl-physical
+  title: "OpenGL and physical path tracing"
+  before: demo1-gl.webp
+  after: demo1-physical.webp
+  before_label: "OpenGL"
+  after_label: "Physical path tracing"
+  aligned: false
+  caption: "Historical demo1 captures with different resolutions and lens settings; not a pixel-aligned or performance comparison."

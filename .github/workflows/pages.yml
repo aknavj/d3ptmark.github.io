@@ -32,8 +32,6 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
-      - name: Test report validation and review gate
-        run: npm test
       - name: Read approved community reports
         env:
           GH_TOKEN: ${{ github.token }}

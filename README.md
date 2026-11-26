@@ -1,73 +1,35 @@
 # Doom 3 / Path Traced benchmark site
 
-Static Jekyll site with a community GPU leaderboard. Engine sources are hosted
-separately.
+Static Jekyll site at **https://d3ptmark.github.io/**.
 
-## Local preview
+## Deployment
 
-Requires Ruby 3.3+, Bundler, and Node 22+. No npm install is needed.
+Host the repository at **d3ptmark/d3ptmark.github.io** and select
+**Settings > Pages > Source > GitHub Actions**. No custom domain is needed.
 
-```sh
-bundle install
-npm test
-npm run refresh
-bundle exec jekyll serve --host 127.0.0.1
-```
+Push to `main`, `master`, or `pt-refactor`, or manually run
+**Actions > Build benchmark site**.
 
-Open <http://127.0.0.1:4000>. Run `npm run refresh` again to fetch approved
-submissions, rebuild the site, and check generated links.
-
-## Deploy to GitHub Pages
-
-To publish at **https://d3ptmark.github.io/**:
-
-1. Use a GitHub account or organization named **d3ptmark**.
-2. Host this site in **d3ptmark/d3ptmark.github.io**. If it is still under
-   `aknavj`, transfer it through **Settings > General > Transfer ownership**.
-3. Select **Settings > Pages > Source > GitHub Actions**. Do not set a custom domain.
-4. Run **Actions > Build benchmark site > Run workflow**, or push to
-   `main`, `master`, or `pt-refactor`.
-5. Wait for both **build** and **deploy** to succeed.
-
-The workflow handles the Pages base path automatically. A repository under
-`aknavj` cannot claim the `d3ptmark.github.io` hostname.
-
-After transferring, update your local remote:
-
-```sh
-git remote set-url origin git@github.com:d3ptmark/d3ptmark.github.io.git
-```
+Actions fetches issues labeled **benchmark-approved** from `community_repository`
+and generates the leaderboard and reports before building. Generated submission
+data is not committed. Review the archive, settings, and preview before approval.
+An hourly workflow refreshes the site; removing approval removes the entry on
+the next refresh.
 
 ## Configuration
 
-Edit [_config.yml](./_config.yml):
+Edit [_config.yml](./_config.yml) for the site URL, engine repository and branch,
+submission repository (`owner/repo`), video, and donation link.
 
-- `url`: public site origin; currently `https://d3ptmark.github.io`.
-- `source_repository` / `source_branch`: engine repository (`owner/repo`) and branch.
-- `community_repository`: public submission repository, in `owner/repo` format.
-- `youtube_intro_url` / `paypal_donate_url`: optional video and donation links.
+## Local preview
 
-Engine and submission repositories do not need to move with the site.
+Requires Ruby 3.3+, Bundler, and Node 22+.
 
-## Submissions and approval
+```sh
+bundle install
+npm run sync
+bundle exec jekyll serve --host 127.0.0.1
+```
 
-- Use the site's **Run & submit** page to prepare an issue from benchmark files.
-- Review the original archive, settings history, and preview before applying
-  **`benchmark-approved`** in the submission repository.
-- Removing the label removes the entry on the next refresh. Closing an issue
-  does not approve it.
-- Actions refreshes submissions hourly; a manual workflow run also refreshes them.
-- Do not hand-edit generated leaderboard or report data.
-
-Approval is manual review, not anti-cheat verification. Rankings compare only
-matching workloads and settings, not general gameplay performance.
-
-## Editing
-
-- Pages: root Markdown files.
-- Layout: [_layouts/default.html](./_layouts/default.html).
-- Styles and browser code: [assets/](./assets/).
-- Importer: [scripts/sync-submissions.mjs](./scripts/sync-submissions.mjs).
-- Tests: `npm test`.
-
-Never commit credentials, game archives, or private benchmark files.
+Open <http://127.0.0.1:4000>. Skip `npm run sync` for an empty leaderboard.
+Tests and scripts are excluded from the published site.

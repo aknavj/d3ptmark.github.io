@@ -4,8 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "sync": "node scripts/sync-submissions.mjs",
-    "refresh": "sh scripts/refresh-site.sh"
+    "sync": "node scripts/sync-submissions.mjs"
   },
   "engines": { "node": ">=22" }
 }

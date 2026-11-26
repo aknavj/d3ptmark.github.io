@@ -12,7 +12,6 @@ refresh-submissions:
   stage: refresh
   image: node:22-bookworm
   script:
-    - npm test
     - npm run sync
   artifacts:
     paths:

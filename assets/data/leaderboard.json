@@ -1,4 +1,4 @@
 ---
 layout: null
 ---
-{{ site.data.submissions | jsonify }}
+{% if site.data.submissions %}{{ site.data.submissions | jsonify }}{% else %}[]{% endif %}
