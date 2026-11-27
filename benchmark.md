@@ -6,14 +6,14 @@ permalink: /benchmark/
 ---
 ## 1. Run
 
-Choose your installed build, download a config, and copy it into your game's
-`base/` folder. Close other GPU workloads, exit the engine, then use the launch
-command below. Adjust its executable and game-data paths for your installation.
+Choose the renderer and backend, download a config, and copy it into your game's
+`base/` folder. Close other GPU workloads, then use the launch command below.
+Adjust its executable and game-data paths for your installation.
 
 <section id="benchmark-builder" data-install-url="{{ '/install/' | relative_url }}">
   <div class="renderer-tabs" role="tablist" aria-label="Path tracer build">
-    <button id="tab-physical" type="button" role="tab" data-model="physical" aria-controls="benchmark-options" aria-selected="true">Physical PT</button>
-    <button id="tab-legacy" type="button" role="tab" data-model="legacy" aria-controls="benchmark-options" aria-selected="false" tabindex="-1">Legacy PT</button>
+    <button id="tab-physical" type="button" role="tab" data-model="physical" aria-controls="benchmark-options" aria-selected="true">Physical PT / d3ptmark-pt</button>
+    <button id="tab-legacy" type="button" role="tab" data-model="legacy" aria-controls="benchmark-options" aria-selected="false" tabindex="-1">Legacy PT / d3ptmark-le</button>
   </div>
   <div id="benchmark-options" role="tabpanel" aria-labelledby="tab-physical">
     <p id="required-build"></p>
@@ -21,10 +21,13 @@ command below. Adjust its executable and game-data paths for your installation.
     <div class="profile-heading"><strong id="profile-name">Site standard</strong>
       <button id="reset-profile" type="button" class="secondary">Reset to standard v1</button></div>
     <div class="form-grid">
+      <label>Backend <select data-setting="backend">
+        <option value="cuda" selected>CUDA (NVIDIA)</option><option value="opencl">OpenCL (AMD, Intel, NVIDIA)</option>
+      </select></label>
       <label>Demo <input data-setting="demo" value="demo1" maxlength="100"></label>
       <label>Samples per pixel <input data-setting="spp" type="number" min="1" max="100000" step="1" value="8"></label>
       <label>Viewport width <input data-setting="width" type="number" min="320" max="7680" step="1" value="1280"></label>
-      <label>Viewport height <input data-setting="height" type="number" min="240" max="4320" step="1" value="720"></label>
+      <label>Viewport height <input data-setting="height" type="number" min="240" max="4320" step="1" value="1024"></label>
       <label>Quality <select data-setting="preset">
         <option value="gameplay_low">Gameplay / low</option><option value="gameplay_med">Gameplay / medium</option>
         <option value="gameplay_high">Gameplay / high</option><option value="gameplay_ultra">Gameplay / ultra</option>
@@ -33,6 +36,8 @@ command below. Adjust its executable and game-data paths for your installation.
         <option value="custom">Custom budgets</option>
       </select></label>
       <label class="check"><input data-setting="denoise" type="checkbox" checked>Denoising</label>
+      <label class="check"><input data-setting="uncapped" type="checkbox" checked>Uncapped (no 30 Hz cap, vsync off)</label>
+      <label class="check"><input data-setting="saveImages" type="checkbox">Save every frame (slower)</label>
     </div>
     <details>
       <summary>Advanced rendering settings</summary>
@@ -58,6 +63,7 @@ command below. Adjust its executable and game-data paths for your installation.
       <label>Engine executable <input id="engine-path" maxlength="500" spellcheck="false"></label>
     </div>
     <label>Game data directory (optional, contains base/) <input id="game-data-path" maxlength="500" placeholder="/path/to/doom3" spellcheck="false"></label>
+    <label class="check"><input id="headless" type="checkbox" checked>Headless: no window, quits when the run ends</label>
     <label>Generated config <textarea id="generated-config" readonly rows="8" spellcheck="false"></textarea></label>
     <p><button id="download-config" type="button" data-output-action>Download .cfg</button>
       <button id="copy-config" type="button" class="secondary" data-output-action>Copy config</button></p>
@@ -68,30 +74,50 @@ command below. Adjust its executable and game-data paths for your installation.
   </div>
 </section>
 
-Standard v1 uses stock `demo1`, 1280x720, 8 spp, cinematic-low budgets,
-denoising on, and fog/DOF off. Changing these settings makes a custom run.
-Use stock assets and no custom material overrides. Configs change benchmark
+Standard v1 uses stock `demo1` in a 1280x1024 window, 8 spp, cinematic-low budgets,
+denoising on, fog/DOF off, **uncapped** and **without image saving**, on either
+backend (CUDA and OpenCL results are grouped separately). Changing any of these makes a
+custom run. Use stock assets and no custom material overrides. Configs change benchmark
 CVars; other archived settings can still differ and are checked when grouping reports.
 
-Every frame is saved, with playback capped at 30 Hz.
-**Capture FPS includes pacing and image writes; it is not gameplay FPS.**
+Every demo frame converges to the full sample count before the next one. Uncapped runs
+advance as soon as a frame is done; capped runs hold each frame for the demo's 30 Hz.
+**Captured FPS measures fully converged frames; it is not gameplay FPS.**
 
-For an OpenGL reference, wait for PT to finish, then run:
+`r_ptBenchmark <demo> <spp> [uncapped] [save_image 0|1]` and
+`r_glBenchmark <demo> [uncapped] [save_image 0|1]` take the options in any order;
+`save_image` defaults to 1. With **headless** (`--headless`) the engine needs no window or
+display (Linux: offscreen EGL; Windows: a hidden window) and quits after the run with exit
+code 0 (completed), 1 (aborted) or 2 (did not start).
+
+For an OpenGL reference, run the same demo with OpenGL:
 ```text
-r_glBenchmark demo1
+r_glBenchmark demo1 uncapped save_image 0
 ```
 
-Pair images by frame number, not run number:
+### Scripted runs
+
+`benchmark.sh` (Linux) and `benchmark.bat` (Windows) in the engine repository run both
+binaries headless: an OpenGL baseline, then each preset on every available backend, at
+1280x1024. Each run gets its own folder with the console log, report, telemetry and frames:
+
+```sh
+./benchmark.sh demo1
+```
+
+### Image pairs
+
+With `save_image 1`, pair images by frame number, not run number:
 
 ```text
 screenshots/ptbench/demo1/8spp_run_NNNNN/frame_000001_8spp.png
 screenshots/glbench/demo1/run_NNNNN/frame_000001.png
 ```
 
-Match resolution and camera settings; see the
-[comparison notes]({{ '/comparisons/' | relative_url }}).
+Match the resolution, use `r_ptRenderScale 1`, the same camera FOV, and disable physical
+depth of field for pinhole framing.
 Cancel with `r_ptAbort` or `r_glAbort`; saved frames remain.
-Do not append an immediate `quit` to a capture command.
+Do not append an immediate `quit` to a capture command; headless runs quit by themselves.
 
 ## 2. Keep the report
 
@@ -119,7 +145,7 @@ Benchmark submissions go to the
     <label>frames.csv <input id="frames-file" type="file" accept=".csv,text/csv" required></label>
     <label>telemetry.csv (optional, adds GPU charts) <input id="telemetry-file" type="file" accept=".csv,text/csv"></label>
     <label>Preview image (stays local) <input id="preview-file" type="file" accept="image/png,image/jpeg,image/webp"></label>
-    <label>Driver version (optional) <input id="driver-version" type="text" maxlength="80" placeholder="NVIDIA driver version"></label>
+    <label>Driver version (optional) <input id="driver-version" type="text" maxlength="80" placeholder="GPU driver version"></label>
   </div>
   <p class="caption">Limits: metadata 2 MB, each CSV 32 MB, image 5 MB. Charts share up to 120 averaged buckets, not raw telemetry.</p>
   <button type="submit">Check report</button>
@@ -150,7 +176,8 @@ Match the source revision, renderer, demo, resolution, samples and settings.
 Dirty or unknown revisions are accepted as feedback, but not ranked.
 Stock `demo1` has 2,148 frames and fingerprint `b3debb3af436474b`.
 Site profiles are versioned reference configs, not independently certified results.
-GL does not report PT GPU timings.
+GL does not report PT GPU timings. Reports from builds before the pacing/image fields
+cannot be submitted; rerun them with a current build.
 
 Found a rendering bug or an incomplete run?
 [Report it here](https://github.com/{{ site.source_repository }}/issues)

@@ -25,8 +25,9 @@ independent verification. Dirty or unknown revisions stay unranked.
 <noscript><p>Enable JavaScript for the table, or
 <a href="{{ '/assets/data/leaderboard.json' | relative_url }}">read the JSON data</a>.</p></noscript>
 
-**Captured fps includes pacing and image writes, not just rendering.**
-GPU ms/frame is shown separately for PT and is unavailable for GL.
-These are not unrestricted gameplay FPS results.
+**Captured fps counts fully converged frames.** Standard runs are uncapped without image
+writes; capped (30 Hz) or image-saving runs are grouped separately and their fps includes that
+overhead. GPU ms/frame is shown separately for PT and is unavailable for GL.
+These are not gameplay FPS results.
 
 [Run a benchmark and submit your GPU]({{ '/benchmark/' | relative_url }}).

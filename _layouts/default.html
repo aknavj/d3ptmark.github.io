@@ -11,20 +11,20 @@
   <meta property="og:description" content="{{ page.description | default: site.description | escape }}">
   <meta property="og:type" content="website">
   {% if site.url != "" %}<link rel="canonical" href="{{ page.url | absolute_url }}">{% endif %}
+  <link rel="icon" type="image/png" href="{{ '/assets/images/d3ptmark_logo_32.png' | relative_url }}">
   <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
   <script type="module" src="{{ '/assets/js/site.js' | relative_url }}"></script>
 </head>
 <body{% if page.home %} class="landing"{% endif %}>
   <a class="skip" href="#content">Skip to content</a>
-  <div class="utility-bar" aria-hidden="true"><span>Mars / Render lab</span><span>Experimental CUDA renderer</span></div>
+  <div class="utility-bar" aria-hidden="true"><span>SAME HELL. NEW LIGHT</span><span>NOW YOUR SERVERS CAN DOOM3</span></div>
   <header class="site-header">
     <div class="identity">
-      <a class="brand" href="{{ '/' | relative_url }}">DOOM 3 <span>/ PT</span></a>
-      <span class="brand-subtitle">Path tracing / Benchmark terminal</span>
+      <a class="brand" href="{{ '/' | relative_url }}"><img class="brand-logo" src="{{ '/assets/images/d3ptmark_logo_header.png' | relative_url }}" alt="" width="50" height="56"><span class="brand-name">d3pt<span>mark</span></span></a>
     </div>
     <nav aria-label="Main navigation">
-      {% assign paths = "/features/,/install/,/comparisons/,/benchmark/,/leaderboard/,/changelog/" | split: "," %}
-      {% assign labels = "Renderer,Install,A/B gallery,Run & submit,Leaderboard,Changelog" | split: "," %}
+      {% assign paths = "/features/,/install/,/benchmark/,/leaderboard/,/changelog/" | split: "," %}
+      {% assign labels = "Renderer,Install,Run & submit,Leaderboard,Changelog" | split: "," %}
       {% for path in paths %}
       <a href="{{ path | relative_url }}"{% if page.url == path %} aria-current="page"{% endif %}>{{ labels[forloop.index0] }}</a>
       {% endfor %}

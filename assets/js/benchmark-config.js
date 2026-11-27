@@ -1,3 +1,6 @@
+export const BACKENDS = Object.freeze(["cuda", "opencl"]);
+export const BINARIES = Object.freeze({ physical: "d3ptmark-pt", legacy: "d3ptmark-le" });
+
 export const QUALITY_PRESETS = Object.freeze({
   gameplay_low: [0.35, 1, 1, 1], gameplay_med: [0.5, 1, 2, 1],
   gameplay_high: [0.67, 1, 2, 2], gameplay_ultra: [0.75, 2, 3, 2],
@@ -6,7 +9,7 @@ export const QUALITY_PRESETS = Object.freeze({
 });
 
 const COMMON = Object.freeze({
-  r_ptBackend: "cuda", r_ptDraw: 1, r_ptMode: 0,
+  r_ptDraw: 1, r_ptMode: 0,
   r_ptIndirectProb: 0.15, r_ptRussianRoulette: 1, r_ptRRMinBounces: 2,
   r_ptRRSurvivalMin: 0.1, r_ptEarlyTermThreshold: 0.05, r_ptFireflyClamp: 5,
   r_ptThroughputClamp: 0.25, r_ptAccumulation: 1, r_ptResetOnSceneChange: 1,
@@ -34,11 +37,15 @@ const PHYSICAL = Object.freeze({
 export function defaultConfig(model = "physical") {
   if (!["physical", "legacy"].includes(model)) throw new Error("Choose Physical PT or Legacy PT.");
   return {
-    model, demo: "demo1", width: 1280, height: 720, spp: 8, preset: "cinematic_low",
+    model, backend: "cuda", demo: "demo1", width: 1280, height: 1024, spp: 8, preset: "cinematic_low",
     scale: 1, batch: 4, depth: 3, lights: 2, denoise: true, fog: false,
-    dof: false, exposure: 0, focalLength: 35, focusDistance: 3, legacyExposure: 1
+    dof: false, exposure: 0, focalLength: 35, focusDistance: 3, legacyExposure: 1,
+    uncapped: true, saveImages: false
   };
 }
+
+// the standard profile accepts either backend; reports are still grouped per backend
+const PROFILE_FREE = new Set(["backend"]);
 
 function bounded(value, label, min, max, integer = false) {
   if ((typeof value === "string" && value.trim() === "") || value === null || !["number", "string"].includes(typeof value) ||
@@ -60,7 +67,8 @@ export function validateConfig(input) {
     ["focalLength", "Focal length", 10, 200, false], ["focusDistance", "Focus distance", 0.25, 1000, false],
     ["legacyExposure", "Exposure multiplier", 0.01, 100, false]
   ]) c[key] = bounded(c[key], label, min, max, integer);
-  for (const key of ["denoise", "fog", "dof"]) if (typeof c[key] !== "boolean") throw new Error(`Invalid ${key} switch.`);
+  for (const key of ["denoise", "fog", "dof", "uncapped", "saveImages"]) if (typeof c[key] !== "boolean") throw new Error(`Invalid ${key} switch.`);
+  if (!BACKENDS.includes(c.backend)) throw new Error("Choose the CUDA or OpenCL backend.");
   if (c.preset !== "custom" && !Object.hasOwn(QUALITY_PRESETS, c.preset)) throw new Error("Unknown quality preset.");
   if (c.preset !== "custom" && QUALITY_PRESETS[c.preset].some((value, i) =>
     value !== [c.scale, c.batch, c.depth, c.lights][i])) c.preset = "custom";
@@ -70,7 +78,7 @@ export function validateConfig(input) {
 export function configSettings(input) {
   const c = validateConfig(input);
   const values = {
-    ...COMMON, r_ptPreset: c.preset, r_ptRenderScale: c.scale,
+    ...COMMON, r_ptBackend: c.backend, r_ptPreset: c.preset, r_ptRenderScale: c.scale,
     r_ptSamplesPerPixel: c.batch, r_ptMaxDepth: c.depth, r_ptMaxLightSamples: c.lights,
     r_ptDenoise: Number(c.denoise), r_ptSkyIntensity: c.model === "physical" ? 25 : 1
   };
@@ -85,7 +93,7 @@ export function configSettings(input) {
 
 export function configProfile(input) {
   const c = validateConfig(input), standard = defaultConfig(c.model);
-  return Object.keys(standard).every(key => c[key] === standard[key]) ? `${c.model}-v1` : "custom";
+  return Object.keys(standard).every(key => PROFILE_FREE.has(key) || c[key] === standard[key]) ? `${c.model}-v1` : "custom";
 }
 
 export function benchmarkBatch(spp, limit) {
@@ -98,17 +106,17 @@ export function generateBenchmark(input, launch = {}) {
   const c = validateConfig(input), profile = configProfile(c);
   const filename = `ptbench-${c.model}-${profile === "custom" ? "custom" : "v1"}.cfg`;
   const settings = configSettings(c);
+  const options = [...(c.uncapped ? ["uncapped"] : []), "save_image", c.saveImages ? "1" : "0"];
   const config = [
-    `// Doom 3 PT / ${profile} / ${c.width}x${c.height} viewport`,
-    `// Requires ${c.model === "physical" ? "PT_PHYSICAL=ON" : "PT_PHYSICAL=OFF"}. Use the matching launch command.`,
+    `// Doom 3 PT / ${profile} / ${c.width}x${c.height} viewport / ${c.backend}`,
+    `// Run with ${BINARIES[c.model]} (${c.model === "physical" ? "physical" : "legacy"} path tracer). Use the matching launch command.`,
     "// Sets benchmark CVars. Archived settings may be saved by the engine.",
     ...Object.entries(settings).map(([key, value]) => `set ${key} ${value}`),
-    `r_ptBenchmark ${c.demo} ${c.spp}`, ""
+    `r_ptBenchmark ${c.demo} ${c.spp} ${options.join(" ")}`, ""
   ].join("\n");
   const platform = launch.platform ?? "linux";
   if (!["linux", "windows"].includes(platform)) throw new Error("Choose Linux or Windows PowerShell.");
-  const executable = launch.executable ?? (platform === "windows"
-    ? `.\\build-${c.model}\\RelWithDebInfo\\dhewm3.exe` : `./build-${c.model}/dhewm3`);
+  const executable = launch.executable ?? defaultExecutable(c.model, platform);
   const dataPath = launch.dataPath ?? "";
   for (const path of [executable, dataPath]) {
     if (typeof path !== "string" || path.length > 500 || /[\u0000-\u001f\u007f]/.test(path)) {
@@ -119,6 +127,7 @@ export function generateBenchmark(input, launch = {}) {
   if (!executable.trim() || executable.trim().startsWith("-")) throw new Error("Enter the engine executable path.");
   const quote = value => "'" + value.replaceAll("'", platform === "windows" ? "''" : "'\\''") + "'";
   const args = [
+    ...(launch.headless ? ["--headless"] : []),
     ...(dataPath ? ["+set", "fs_basepath", dataPath] : []),
     "+set", "r_fullscreen", "0", "+set", "r_mode", "-1",
     "+set", "r_customWidth", String(c.width), "+set", "r_customHeight", String(c.height),
@@ -130,12 +139,19 @@ export function generateBenchmark(input, launch = {}) {
     width: Math.max(64, Math.floor(c.width * c.scale)), height: Math.max(64, Math.floor(c.height * c.scale)) };
 }
 
+export function defaultExecutable(model, platform = "linux") {
+  return platform === "windows" ? `.\\build\\RelWithDebInfo\\${BINARIES[model]}.exe` : `./build/${BINARIES[model]}`;
+}
+
 export function reportProfile(report) {
   if (!["PT_PHYSICAL", "legacy"].includes(report.model)) return "custom";
-  const model = report.model === "PT_PHYSICAL" ? "physical" : "legacy", c = defaultConfig(model);
+  const model = report.model === "PT_PHYSICAL" ? "physical" : "legacy";
+  if (!BACKENDS.includes(report.settings?.r_ptBackend)) return "custom";
+  const c = { ...defaultConfig(model), backend: report.settings.r_ptBackend };
   if (report.source !== "demos/demo1.demo" || report.fingerprint !== "b3debb3af436474b" ||
       report.frames !== 2148 || report.width !== c.width || report.height !== c.height ||
-      report.spp !== c.spp || report.batch !== 4 || report.dispatches_per_frame !== 2) return "custom";
+      report.spp !== c.spp || report.batch !== 4 || report.dispatches_per_frame !== 2 ||
+      report.pacing !== "uncapped" || report.save_images !== false) return "custom";
   return Object.entries(configSettings(c)).every(([key, value]) => report.settings[key] === value)
     ? `${model}-v1` : "custom";
 }

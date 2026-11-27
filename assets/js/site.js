@@ -3,17 +3,7 @@ import { reportProfile } from "./benchmark-config.js";
 import { element, downloadText } from "./ui.js";
 import "./configurator.js";
 import "./leaderboard.js";
-import "./video-intro.js";
-
-for (const figure of document.querySelectorAll("[data-comparison]")) {
-  const control = figure.querySelector(".comparison-control");
-  const slider = control.querySelector("input");
-  figure.classList.add("interactive");
-  control.hidden = false;
-  const update = () => figure.style.setProperty("--reveal", `${slider.value}%`);
-  slider.addEventListener("input", update);
-  update();
-}
+import "./tri-compare.js";
 
 const form = document.querySelector("#report-form");
 if (form) {
@@ -63,8 +53,9 @@ if (form) {
       const summary = document.querySelector("#report-summary");
       summary.replaceChildren();
       const values = {
-        GPU: report.gpu, Renderer: report.model, Profile: reportProfile(report), Revision: report.revision,
+        GPU: report.gpu, Renderer: report.model, Backend: report.backend, Profile: reportProfile(report), Revision: report.revision,
         Workload: `${report.source}, ${report.width}x${report.height}, ${report.spp} spp`,
+        Pacing: `${report.pacing === "uncapped" ? "uncapped" : "capped 30 Hz"}, images ${report.save_images ? "saved" : "not saved"}`,
         Frames: report.frames.toLocaleString(),
         "Captured fps (not gameplay)": capturedFps(report).toFixed(3),
         "GPU ms/frame": report.gpu_ms === null ? "unavailable (OpenGL)" : (report.gpu_ms / report.frames).toFixed(3)

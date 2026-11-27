@@ -8,7 +8,6 @@ source_repository: d3ptmark/d3ptmark
 source_branch: pt-refactor
 community_repository: d3ptmark/d3ptmark-submissions
 paypal_donate_url: "https://www.paypal.com/ncp/payment/XXVFMFSZYWNEY"
-youtube_intro_url: "https://www.youtube.com/watch?v=HWzbplsBm0A"
 
 markdown: kramdown
 permalink: /journal/:year/:month/:day/:title/

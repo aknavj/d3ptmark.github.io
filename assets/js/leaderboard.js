@@ -4,6 +4,12 @@ import { reportCharts } from "./charts.js";
 import { element, downloadText } from "./ui.js";
 
 const MODEL_NAMES = { PT_PHYSICAL: "Physical PT", legacy: "Legacy PT", OpenGL: "OpenGL" };
+const BACKEND_NAMES = { cuda: "CUDA", opencl: "OpenCL", opengl: "OpenGL" };
+const pacingName = report => report.pacing === "uncapped" ? "uncapped" : "capped 30 Hz";
+// what the captured FPS includes, which depends on how the run was made
+const fpsNote = report => report.pacing === "uncapped" && !report.save_images
+  ? "Uncapped run without image writes: captured FPS is rendering throughput (plus CPU work), but every frame converges fully, so it is not gameplay FPS."
+  : `Captured FPS includes ${report.pacing === "uncapped" ? "" : "30 Hz playback pacing and "}${report.save_images ? "image writes" : "CPU work"}, not just rendering. It is not gameplay FPS.`;
 const LOCAL_REPORT = "doom3-pt-local-report";
 const format = (value, digits = 3) => value === null || value === undefined ? "unavailable" :
   value.toLocaleString("en", { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -36,7 +42,8 @@ async function loadEntries(source, local = false) {
 }
 
 function description(report) {
-  return `${reportProfile(report)} / ${MODEL_NAMES[report.model]} / ${report.width}x${report.height} / ${report.spp} spp / ${report.revision}`;
+  return `${reportProfile(report)} / ${MODEL_NAMES[report.model]} / ${BACKEND_NAMES[report.backend]} / ${report.width}x${report.height} / ` +
+    `${report.spp} spp / ${pacingName(report)}${report.save_images ? " + images" : ""} / ${report.revision}`;
 }
 
 function summary(values) {
@@ -50,7 +57,8 @@ function configuration(report) {
   details.append(element("summary", "Exact benchmark configuration"), element("pre", JSON.stringify({
     source: report.source, fingerprint: report.fingerprint, revision: report.revision, frames: report.frames,
     width: report.width, height: report.height, spp: report.spp, batch: report.batch,
-    dispatches_per_frame: report.dispatches_per_frame, settings: report.settings,
+    dispatches_per_frame: report.dispatches_per_frame, backend: report.backend, pacing: report.pacing,
+    save_images: report.save_images, settings: report.settings,
     omitted_settings: report.omitted_settings
   }, null, 2)));
   return details;
@@ -194,7 +202,7 @@ if (detail) {
         ["Capture time", `${format(r.wall_ms / 1000, 1)} s`],
         ["P95 frame time", r.history ? `${format(r.history.stats.p95_ms)} ms` : "not reported"]
       ]) { const card = element("section"); card.append(element("span", label), element("strong", value)); metrics.append(card); }
-      content.append(metrics, element("p", "Capture FPS includes image writes and playback pacing, not just rendering. It is not gameplay FPS. PT GPU time measures instrumented GPU stages; GL GPU timing is unavailable.", "caption"));
+      content.append(metrics, element("p", `${fpsNote(r)} PT GPU time measures instrumented GPU stages; GL GPU timing is unavailable.`, "caption"));
       const actions = element("div", undefined, "actions"), download = element("button", "Download summary");
       download.type = "button"; download.addEventListener("click", () => downloadText("benchmark-submission.json", JSON.stringify(r, null, 2) + "\n", "application/json"));
       actions.append(download);
@@ -212,13 +220,14 @@ if (detail) {
       content.append(actions);
       if (!isRankable(r)) content.append(element("p", "Feedback only: dirty/unknown sources or incomplete settings. This run is not ranked.", "notice"));
       content.append(summary({
-        Renderer: MODEL_NAMES[r.model], Profile: reportProfile(r), Revision: r.revision, Demo: r.source,
+        Renderer: MODEL_NAMES[r.model], Backend: BACKEND_NAMES[r.backend], Profile: reportProfile(r),
+        Pacing: pacingName(r), "Images saved": r.save_images ? "yes" : "no", Revision: r.revision, Demo: r.source,
         "Demo fingerprint": r.fingerprint, Frames: r.frames, Resolution: `${r.width}x${r.height}`,
         "SPP / batch / dispatches": `${r.spp} / ${r.batch} / ${r.dispatches_per_frame}`,
         CPU: r.cpu, "Logical CPU cores": hardware.logical_cores ?? "not reported",
         "System RAM": hardware.ram_mb === undefined ? "not reported" : `${format(hardware.ram_mb / 1024, 2)} GiB`,
         "GPU memory": hardware.vram_bytes === undefined ? "not reported" : `${format(hardware.vram_bytes / 1073741824, 2)} GiB`,
-        Platform: r.platform, "NVIDIA driver package": r.driver,
+        Platform: r.platform, "GPU driver": r.driver,
         "CUDA driver API": hardware.cuda_driver ?? "not reported", "CUDA runtime": hardware.cuda_runtime ?? "not reported",
         "Recorded (UTC)": date(r)
       }));

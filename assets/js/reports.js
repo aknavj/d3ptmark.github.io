@@ -1,4 +1,6 @@
 const MODELS = ["PT_PHYSICAL", "legacy", "OpenGL"];
+const PACINGS = ["uncapped", "capped_30hz"];
+const BACKENDS = ["cuda", "opencl", "opengl"];
 const STRING_SETTINGS = new Set(["r_ptPreset", "r_ptBackend", "r_renderer"]);
 
 function requireValue(condition, message) {
@@ -99,6 +101,9 @@ export function validateSubmission(input) {
   requireValue(gl || batch * dispatches === spp, "Sample and dispatch budgets disagree.");
   requireValue(!gl || (input.spp === 0 && input.batch === 0 && input.dispatches_per_frame === 0 &&
     input.gpu_ms === null), "GL must not claim PT/GPU metrics.");
+  requireValue(PACINGS.includes(input.pacing), "Benchmark pacing is missing; rerun with a current build.");
+  requireValue(typeof input.save_images === "boolean", "Benchmark image-saving flag is missing; rerun with a current build.");
+  requireValue(BACKENDS.includes(input.backend) && (input.backend === "opengl") === gl, "Invalid compute backend.");
   const report = {
     kind: "doom3-pt-benchmark", schema_version: 1, model, source, fingerprint, revision,
     gpu: text(input.gpu, "GPU"), cpu: text(input.cpu, "CPU"), platform: text(input.platform, "Platform", 80),
@@ -107,6 +112,7 @@ export function validateSubmission(input) {
     width: number(input.width, "Image width", 1, 16384, true),
     height: number(input.height, "Image height", 1, 16384, true),
     spp, batch, dispatches_per_frame: dispatches,
+    backend: input.backend, pacing: input.pacing, save_images: input.save_images,
     wall_ms: number(input.wall_ms, "Total captured-frame wall time", 0.000001),
     gpu_ms: gl ? null : number(input.gpu_ms, "Total GPU time", 0.000001),
     settings, omitted_settings: omittedSettings
@@ -260,6 +266,8 @@ export function importReport(metadata, csv, driver = "not reported", telemetryCs
     else gpu += number(row.gpu_ms, "Frame GPU time", 0.000001);
   });
   closeTotal(wall, metadata.frame_wall_total_ms, "Total frame wall time");
+  requireValue(PACINGS.includes(metadata.benchmark_pacing) && typeof metadata.benchmark_save_images === "boolean",
+    "This report has no benchmark pacing/image fields. Rerun the benchmark with a current build.");
   if (!gl) closeTotal(gpu, metadata.gpu_total_ms, "Total GPU time");
   const sanitized = sanitizeSettings(metadata.settings_effective);
   return validateSubmission({
@@ -269,6 +277,8 @@ export function importReport(metadata, csv, driver = "not reported", telemetryCs
     cpu: metadata.cpu_model || "not reported", platform: metadata.platform,
     driver: driver.trim() || "not reported", frames: rows.length, width, height,
     spp, batch, dispatches_per_frame: dispatches, wall_ms: wall, gpu_ms: gl ? null : gpu,
+    backend: gl ? "opengl" : metadata.gpu?.api === "opencl" ? "opencl" : "cuda",
+    pacing: metadata.benchmark_pacing, save_images: metadata.benchmark_save_images,
     settings: sanitized.settings, omitted_settings: sanitized.omitted,
     ...(metadata.started_unix_s === undefined ? {} : { recorded_unix_s: metadata.started_unix_s }),
     hardware: {
@@ -289,6 +299,7 @@ export function isRankable(report) {
 export function compatibilityKey(report) {
   return JSON.stringify([report.revision, report.model, report.source, report.fingerprint,
     report.frames, report.width, report.height, report.spp, report.batch, report.dispatches_per_frame,
+    report.backend, report.pacing, report.save_images,
     Object.entries(report.settings).sort(([a], [b]) => a.localeCompare(b))]);
 }
 

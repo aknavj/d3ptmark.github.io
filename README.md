@@ -19,7 +19,7 @@ the next refresh.
 ## Configuration
 
 Edit [_config.yml](./_config.yml) for the site URL, engine repository and branch,
-submission repository (`owner/repo`), video, and donation link.
+submission repository (`owner/repo`) and donation link.
 
 ## Local preview
 

@@ -9,14 +9,23 @@ for (const model of ["physical", "legacy"]) {
     const c = defaultConfig(model), output = generateBenchmark(c);
     assert.equal(output.profile, `${model}-v1`);
     assert.equal(output.batch, 4);
-    assert.equal(output.width, 1280); assert.equal(output.height, 720);
-    assert.match(output.config, /r_ptBenchmark demo1 8\n$/);
+    assert.equal(output.width, 1280); assert.equal(output.height, 1024);
+    assert.match(output.config, /r_ptBenchmark demo1 8 uncapped save_image 0\n$/);
+    assert.match(output.config, /^set r_ptBackend cuda$/m);
     assert.doesNotMatch(output.config, /\n(?:quit|vid_restart)|set PT_PHYSICAL/);
     assert.doesNotMatch(output.config, /;/);
-    assert.match(output.command, /r_customWidth' '1280'.*r_customHeight' '720'.*\+exec/);
+    assert.match(output.command, /r_customWidth' '1280'.*r_customHeight' '1024'.*\+exec/);
+    assert.match(output.command, new RegExp(`^'\\./build/d3ptmark-${model === "physical" ? "pt" : "le"}' `));
+    assert.doesNotMatch(output.command, /--headless/);
+    assert.match(generateBenchmark(c, { headless: true }).command, /^'[^']+' '--headless' /);
+    // either backend is the standard; capped or image-saving runs are custom
+    assert.equal(configProfile({ ...c, backend: "opencl" }), `${model}-v1`);
+    assert.match(generateBenchmark({ ...c, backend: "opencl" }).config, /^set r_ptBackend opencl$/m);
+    assert.match(generateBenchmark({ ...c, uncapped: false, saveImages: true }).config, /r_ptBenchmark demo1 8 save_image 1\n$/);
     assert.equal(output.filename, `ptbench-${model}-v1.cfg`);
     assert.equal(configProfile({ ...c, spp: "8", width: "1280" }), `${model}-v1`);
-    for (const patch of [{ spp: 9 }, { width: 800 }, { denoise: false }, { fog: true }, { demo: "other_demo" }]) {
+    for (const patch of [{ spp: 9 }, { width: 800 }, { height: 720 }, { denoise: false }, { fog: true }, { demo: "other_demo" },
+      { uncapped: false }, { saveImages: true }]) {
       assert.equal(configProfile({ ...c, ...patch }), "custom");
     }
     assert.equal(configProfile(defaultConfig(model)), `${model}-v1`);
@@ -55,7 +64,8 @@ for (const patch of [
   { width: "" }, { width: null }, { width: 319 }, { height: 239 }, { width: 7681 },
   { height: 4321 }, { spp: 0 }, { spp: 1.5 }, { spp: 100001 }, { batch: 65 }, { depth: 17 },
   { lights: 9 }, { scale: 0.09 }, { scale: Infinity }, { exposure: 11 }, { exposure: " " }, { model: null },
-  { focalLength: 9 }, { focusDistance: 0.2 }, { denoise: "false" }, { preset: "__proto__" }, { model: "OpenGL" }
+  { focalLength: 9 }, { focusDistance: 0.2 }, { denoise: "false" }, { preset: "__proto__" }, { model: "OpenGL" },
+  { backend: "vulkan" }, { backend: "auto" }, { uncapped: "yes" }, { saveImages: 1 }
 ]) test(`rejects invalid configurator values ${JSON.stringify(patch)}`, () => {
   assert.throws(() => generateBenchmark({ ...defaultConfig(), ...patch }));
 });
@@ -84,9 +94,14 @@ test("launch paths are shell-quoted, never interpreted, and Windows uses PowerSh
 test("profile recognition derives workload/settings, never trusts a submitted label", () => {
   for (const model of ["physical", "legacy"]) {
     const r = { model: model === "physical" ? "PT_PHYSICAL" : "legacy", source: "demos/demo1.demo",
-      fingerprint: "b3debb3af436474b", frames: 2148, width: 1280, height: 720, spp: 8, batch: 4,
-      dispatches_per_frame: 2, settings: configSettings(defaultConfig(model)) };
+      fingerprint: "b3debb3af436474b", frames: 2148, width: 1280, height: 1024, spp: 8, batch: 4,
+      dispatches_per_frame: 2, pacing: "uncapped", save_images: false, settings: configSettings(defaultConfig(model)) };
     assert.equal(reportProfile(r), `${model}-v1`);
+    assert.equal(reportProfile({ ...r, settings: configSettings({ ...defaultConfig(model), backend: "opencl" }) }), `${model}-v1`);
+    assert.equal(reportProfile({ ...r, pacing: "capped_30hz" }), "custom");
+    assert.equal(reportProfile({ ...r, save_images: true }), "custom");
+    assert.equal(reportProfile({ ...r, height: 720 }), "custom");
+    assert.equal(reportProfile({ ...r, settings: { ...r.settings, r_ptBackend: "auto" } }), "custom");
     assert.equal(reportProfile({ ...r, spp: 64, profile: `${model}-v1` }), "custom");
     assert.equal(reportProfile({ ...r, frames: 4 }), "custom");
     assert.equal(reportProfile({ ...r, fingerprint: "0000000000000000" }), "custom");

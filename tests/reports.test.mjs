@@ -17,6 +17,7 @@ function fixture(gl = false) {
     completed_rows: 2, requested_spp: gl ? null : 8, capture_batch_spp: gl ? null : 4,
     capture_target_dispatches: gl ? null : 2, gpu_stage_timing: !gl,
     gpu_total_ms: gl ? null : 2500, frame_wall_total_ms: 5000,
+    benchmark_pacing: "uncapped", benchmark_save_images: false,
     startup_argv: ["/home/private", "do-not-publish-this"],
     settings_effective: { r_ptRenderScale: "1", r_ptPreset: "cinematic_low", r_ptDraw: gl ? "0" : "1" }
   };
@@ -51,6 +52,22 @@ test("accepts legacy and GL as separate models without manufacturing GL GPU metr
   assert.throws(() => importReport(g.metadata, g.csv()), /unavailable/);
 });
 
+test("records backend, pacing and image saving, and keeps them apart when grouping", () => {
+  const f = fixture(), cuda = importReport(f.metadata, f.csv());
+  assert.deepEqual([cuda.backend, cuda.pacing, cuda.save_images], ["cuda", "uncapped", false]);
+  f.metadata.gpu.api = "opencl";
+  const opencl = importReport(f.metadata, f.csv());
+  assert.equal(opencl.backend, "opencl");
+  f.metadata.benchmark_pacing = "capped_30hz"; f.metadata.benchmark_save_images = true;
+  const capped = importReport(f.metadata, f.csv());
+  assert.deepEqual([capped.pacing, capped.save_images], ["capped_30hz", true]);
+  assert.equal(new Set([cuda, opencl, capped].map(compatibilityKey)).size, 3);
+  const g = fixture(true);
+  assert.equal(importReport(g.metadata, g.csv()).backend, "opengl");
+  assert.throws(() => validateSubmission({ ...cuda, backend: "opengl" }), /backend/);
+  assert.throws(() => validateSubmission({ ...cuda, pacing: undefined }), /pacing/);
+});
+
 test("CSV supports BOM, CRLF, commas, escaped quotes and embedded newlines", () => {
   assert.deepEqual(parseCsv('\uFEFFa,b\r\n"one,two","a""b"\r\nthree,"line\nbreak"\r\n'),
     [{ a: "one,two", b: 'a"b' }, { a: "three", b: "line\nbreak" }]);
@@ -71,7 +88,11 @@ const invalidMetadata = {
   batch: m => { m.capture_batch_spp = 3; },
   model: m => { m.rendering_model = "fake"; },
   fingerprint: m => { m.source_fingerprint_fnv1a64 = "missing"; },
-  sourcePath: m => { m.source = "/home/private/demo.demo"; }
+  sourcePath: m => { m.source = "/home/private/demo.demo"; },
+  pacingMissing: m => { delete m.benchmark_pacing; },
+  pacingUnknown: m => { m.benchmark_pacing = "fast"; },
+  saveImagesMissing: m => { delete m.benchmark_save_images; },
+  saveImagesText: m => { m.benchmark_save_images = "false"; }
 };
 for (const [label, change] of Object.entries(invalidMetadata)) {
   test(`rejects invalid metadata: ${label}`, () => {

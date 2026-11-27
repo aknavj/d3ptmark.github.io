@@ -27,7 +27,6 @@ unstable. The GPU-fire joke is not a test plan.
 - GitHub submissions are public, including hardware, settings, timings, optional GPU sensor charts and your GitHub account.
 - No site analytics or tracking cookies. GitHub hosting and attachments follow GitHub's privacy policy.
 - Donations take place on PayPal. This site does not collect payment details or embed PayPal scripts.
-- The optional intro loads YouTube's privacy-enhanced player only after you click. Once loaded, YouTube's privacy policy applies.
 
 Edit your issue to correct an entry. Ask a maintainer to remove
 `benchmark-approved` to remove it on the next refresh. Public attachments and

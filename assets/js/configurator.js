@@ -1,4 +1,4 @@
-import { QUALITY_PRESETS, defaultConfig, generateBenchmark } from "./benchmark-config.js";
+import { QUALITY_PRESETS, BINARIES, defaultConfig, defaultExecutable as executableFor, generateBenchmark } from "./benchmark-config.js";
 import { downloadText } from "./ui.js";
 
 const builder = document.querySelector("#benchmark-builder");
@@ -15,8 +15,9 @@ if (builder) {
   const executablePaths = new Map();
   let activePlatform = platform.value;
   const actionButtons = [...builder.querySelectorAll("[data-output-action]")];
+  const headless = builder.querySelector("#headless");
   function defaultExecutable() {
-    return platform.value === "windows" ? `.\\build-${model}\\RelWithDebInfo\\dhewm3.exe` : `./build-${model}/dhewm3`;
+    return executableFor(model, platform.value);
   }
   function populate() {
     for (const field of fields) {
@@ -29,8 +30,8 @@ if (builder) {
       tab.setAttribute("aria-selected", String(active)); tab.tabIndex = active ? 0 : -1;
     }
     builder.querySelector("#benchmark-options").setAttribute("aria-labelledby", `tab-${model}`);
-    builder.querySelector("#required-build").textContent = `Requires PT_PHYSICAL=${model === "physical" ? "ON" : "OFF"}. The tab does not switch your installed renderer.`;
-    builder.querySelector("#build-link").href = `${builder.dataset.installUrl}#${model === "physical" ? "experimental-physical-build" : "doom-3-style-pt-build"}`;
+    builder.querySelector("#required-build").textContent = `Runs ${BINARIES[model]} (${model === "physical" ? "physical" : "legacy"} path tracer). Both binaries come from one build.`;
+    builder.querySelector("#build-link").href = `${builder.dataset.installUrl}#2-build`;
   }
   function render() {
     output = null;
@@ -39,7 +40,7 @@ if (builder) {
       const next = { ...states[model] };
       for (const field of fields) next[field.dataset.setting] = field.type === "checkbox" ? field.checked : field.value;
       output = generateBenchmark(next, { platform: platform.value, executable: executable.value,
-        dataPath: builder.querySelector("#game-data-path").value });
+        dataPath: builder.querySelector("#game-data-path").value, headless: headless.checked });
       config.value = output.config; command.value = output.command;
       builder.querySelector("#profile-name").textContent = output.profile === "custom" ? "Custom" : `Site standard / ${output.profile}`;
       const samples = Number(next.spp);
@@ -47,7 +48,9 @@ if (builder) {
       builder.querySelector("#budget-warning").textContent = samples >= 32 || Number(next.width) * Number(next.height) >= 3840 * 2160 ||
         next.fog || (model === "physical" && next.dof)
         ? "Heavy capture: high sample counts, resolution, fog or DOF can take hours. No runtime estimate is available."
-        : "Captures can be slow. Capture FPS includes pacing and image writes, not just GPU rendering.";
+        : next.uncapped && !next.saveImages
+          ? "Uncapped, no image writes: captured FPS measures rendering throughput of fully converged frames, not gameplay FPS."
+          : `Capture FPS includes ${next.uncapped ? "" : "30 Hz pacing and "}${next.saveImages ? "image writes" : "CPU work"}, not just GPU rendering.`;
     } catch (e) {
       config.value = ""; command.value = ""; error.textContent = e.message;
       builder.querySelector("#profile-name").textContent = "Check settings";
