@@ -80,7 +80,9 @@ async function main() {
   const issues = await fetchApproved(repository, process.env.GH_TOKEN);
   const entries = await writeReportFiles(collectSubmissions(issues, repository),
     new URL("../assets/data/reports/", import.meta.url));
-  await writeFile(new URL("../_data/submissions.json", import.meta.url), JSON.stringify(entries, null, 2) + "\n");
+  const dataDir = new URL("../_data/", import.meta.url);
+  await mkdir(dataDir, { recursive: true });
+  await writeFile(new URL("submissions.json", dataDir), JSON.stringify(entries, null, 2) + "\n");
   console.log(`Prepared ${entries.length} reviewed submissions from ${repository}. No attachments were downloaded.`);
 }
 
