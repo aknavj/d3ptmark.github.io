@@ -2,11 +2,11 @@ name: Build benchmark site
 
 on:
   push:
-    branches: [main, master, pt-refactor]
-  issues:
-    types: [opened, edited, labeled, unlabeled, closed, reopened, deleted]
+    branches: [main]
+  repository_dispatch:
+    types: [submissions-updated]
   schedule:
-    - cron: "23 * * * *"
+    - cron: "23 */6 * * *"
   workflow_dispatch:
 
 permissions:
