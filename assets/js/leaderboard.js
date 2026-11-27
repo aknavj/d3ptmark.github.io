@@ -5,6 +5,13 @@ import { element, downloadText } from "./ui.js";
 
 const MODEL_NAMES = { PT_PHYSICAL: "Physical PT", legacy: "Legacy PT", OpenGL: "OpenGL" };
 const BACKEND_NAMES = { cuda: "CUDA", opencl: "OpenCL", opengl: "OpenGL" };
+const PRESETS = Object.freeze(["low", "med", "high", "ultra", "custom",
+  ...["gameplay", "cinematic"].flatMap(kind => ["low", "med", "high", "ultra", "custom"].map(level => `${kind}_${level}`))]);
+const presetOf = report => {
+  const preset = report.settings?.r_ptPreset;
+  return PRESETS.includes(preset) ? preset : "other";
+};
+const presetName = report => presetOf(report) === "other" ? "preset not reported" : `preset ${presetOf(report)}`;
 const pacingName = report => report.pacing === "uncapped" ? "uncapped" : "capped 30 Hz";
 // what the captured FPS includes, which depends on how the run was made
 const fpsNote = report => report.pacing === "uncapped" && !report.save_images
@@ -42,7 +49,7 @@ async function loadEntries(source, local = false) {
 }
 
 function description(report) {
-  return `${reportProfile(report)} / ${MODEL_NAMES[report.model]} / ${BACKEND_NAMES[report.backend]} / ${report.width}x${report.height} / ` +
+  return `${reportProfile(report)} / ${MODEL_NAMES[report.model]} / ${BACKEND_NAMES[report.backend]} / ${presetName(report)} / ${report.width}x${report.height} / ` +
     `${report.spp} spp / ${pacingName(report)}${report.save_images ? " + images" : ""} / ${report.revision}`;
 }
 
@@ -69,14 +76,17 @@ if (board) {
   const local = new URLSearchParams(location.search).get("local") === "1";
   const status = board.querySelector("#leaderboard-status"), results = board.querySelector("#leaderboard-results");
   const groupSelect = board.querySelector("#leaderboard-group"), model = board.querySelector("#leaderboard-model");
+  const preset = board.querySelector("#leaderboard-preset");
   const platform = board.querySelector("#leaderboard-platform"), search = board.querySelector("#leaderboard-search");
   const sort = board.querySelector("#leaderboard-sort"), previous = board.querySelector("#leaderboard-prev");
   const next = board.querySelector("#leaderboard-next");
   let entries = [], groups = [], page = 1;
   const pageSize = 25;
+  const matchesFilters = entry => (!model.value || entry.report.model === model.value) &&
+    (!preset.value || presetOf(entry.report) === preset.value);
   function groupOptions() {
     const grouped = new Map();
-    for (const entry of entries.filter(entry => !model.value || entry.report.model === model.value)) {
+    for (const entry of entries.filter(matchesFilters)) {
       const key = isRankable(entry.report) ? compatibilityKey(entry.report) : `development:${entry.id}`;
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key).push(entry);
@@ -92,7 +102,7 @@ if (board) {
   function render() {
     results.replaceChildren();
     const group = groupSelect.value === "" ? null : groups[Number(groupSelect.value)];
-    const candidates = group || entries.filter(entry => !model.value || entry.report.model === model.value);
+    const candidates = group || entries.filter(matchesFilters);
     const byFps = [...candidates].sort((a, b) => capturedFps(b.report) - capturedFps(a.report));
     const ranks = new Map();
     let rank = 0, lastFps = null;
@@ -132,7 +142,7 @@ if (board) {
       row.append(element("td", local ? "unranked preview" : ranked ? `#${ranks.get(entry.id)}` : isRankable(r) ? "browse only" : "unranked"));
       const hardware = element("td"); hardware.append(element("strong", r.gpu), element("small", r.cpu));
       const workload = element("td"); workload.append(element("strong", MODEL_NAMES[r.model]),
-        element("small", `${r.width}x${r.height} / ${r.spp} spp`), element("small", reportProfile(r)));
+        element("small", `${r.width}x${r.height} / ${r.spp} spp`), element("small", presetName(r)), element("small", reportProfile(r)));
       const fps = element("td", format(capturedFps(r)), "numeric");
       if (ranked) { const bar = element("span", undefined, "score-bar"); bar.style.width = `${100 * capturedFps(r) / topFps}%`; fps.append(bar); }
       const environment = element("td"); environment.append(element("span", r.platform), element("small", r.driver));
@@ -148,7 +158,7 @@ if (board) {
     if (group) results.append(configuration(group[0].report));
   }
   for (const control of [groupSelect, platform, search, sort]) control.addEventListener(control === search ? "input" : "change", () => { page = 1; render(); });
-  model.addEventListener("change", () => { page = 1; groupOptions(); render(); });
+  for (const control of [model, preset]) control.addEventListener("change", () => { page = 1; groupOptions(); render(); });
   previous.addEventListener("click", () => { page--; render(); });
   next.addEventListener("click", () => { page++; render(); });
   loadEntries(board.dataset.source, local).then(data => {
@@ -156,7 +166,7 @@ if (board) {
     for (const value of [...new Set(entries.map(entry => entry.report.platform))].sort()) {
       const option = element("option", value); option.value = value; platform.append(option);
     }
-    for (const control of [groupSelect, model, platform, search, sort]) control.disabled = false;
+    for (const control of [groupSelect, model, preset, platform, search, sort]) control.disabled = false;
     render();
   }).catch(error => {
     status.textContent = `${local ? "Could not open local preview" : "Could not load reviewed results"}: ${error.message}`;
@@ -220,7 +230,7 @@ if (detail) {
       content.append(actions);
       if (!isRankable(r)) content.append(element("p", "Feedback only: dirty/unknown sources or incomplete settings. This run is not ranked.", "notice"));
       content.append(summary({
-        Renderer: MODEL_NAMES[r.model], Backend: BACKEND_NAMES[r.backend], Profile: reportProfile(r),
+        Renderer: MODEL_NAMES[r.model], Preset: presetOf(r) === "other" ? "not reported" : presetOf(r), Backend: BACKEND_NAMES[r.backend], Profile: reportProfile(r),
         Pacing: pacingName(r), "Images saved": r.save_images ? "yes" : "no", Revision: r.revision, Demo: r.source,
         "Demo fingerprint": r.fingerprint, Frames: r.frames, Resolution: `${r.width}x${r.height}`,
         "SPP / batch / dispatches": `${r.spp} / ${r.batch} / ${r.dispatches_per_frame}`,
